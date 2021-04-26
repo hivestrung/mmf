@@ -174,9 +174,11 @@ class FRCNNPreprocess(BaseProcessor):
                 return images, sizes, scales_yx
 
 
-def img_tensorize(im: str):
-    assert isinstance(im, str)
-    if os.path.isfile(im):
+def img_tensorize(im):
+    assert isinstance(im, str) or isinstance(im, Image.Image)
+    if isinstance(im, Image.Image):
+        img = np.array(im.convert("RGB"))
+    elif os.path.isfile(im):
         img = np.array(Image.open(im).convert("RGB"))
     else:
         img = get_image_from_url(im)

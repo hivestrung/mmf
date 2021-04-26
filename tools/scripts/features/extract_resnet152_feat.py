@@ -72,10 +72,10 @@ def extract_dataset_pool5(image_dir, save_dir, total_group, group_id, ext_filter
     image_list = glob(image_dir + "/*." + ext_filter)
     image_list = {f: 1 for f in image_list}
     exclude = {}
-    with open("./list") as f:
-        lines = f.readlines()
-        for line in lines:
-            exclude[line.strip("\n").split(os.path.sep)[-1].split(".")[0]] = 1
+    # with open("./list") as f:
+    #     lines = f.readlines()
+    #     for line in lines:
+    #         exclude[line.strip("\n").split(os.path.sep)[-1].split(".")[0]] = 1
     output_files = glob(os.path.join(save_dir, "*.npy"))
     output_dict = {}
     for f in output_files:
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     parser.add_argument("--group_id", type=int, default=0)
     parser.add_argument("--data_dir", type=str, required=True)
     parser.add_argument("--out_dir", type=str, required=True)
-    parser.add_argument("--image_ext", type=str, default="jpg")
+    parser.add_argument("--image_ext", type=str, default="png")
 
     args = parser.parse_args()
 

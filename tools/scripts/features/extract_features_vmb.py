@@ -10,6 +10,7 @@
 # category mapping.
 import argparse
 import os
+import typing
 
 import cv2
 import numpy as np
@@ -43,12 +44,18 @@ class FeatureExtractor:
     MAX_SIZE = 1333
     MIN_SIZE = 800
 
-    def __init__(self):
-        self.args = self.get_parser().parse_args()
+    def __init__(self, args: typing.Optional[typing.List[str]] = None):
+        if args is None:
+            self.args = self.get_parser().parse_args()
+        else:
+            args_formatted = []
+            for arg in args:
+                args_formatted.extend(arg.split("="))
+            self.args = self.get_parser().parse_args(args=args_formatted)
         self._try_downloading_necessities(self.args.model_name)
         self.detection_model = self._build_detection_model()
-
-        os.makedirs(self.args.output_folder, exist_ok=True)
+        if self.args.save_features:
+            os.makedirs(self.args.output_folder, exist_ok=True)
 
     def _try_downloading_necessities(self, model_name):
         if self.args.model_file is None and model_name is not None:
@@ -78,6 +85,9 @@ class FeatureExtractor:
         )
         parser.add_argument(
             "--config_file", default=None, type=str, help="Detectron config file"
+        )
+        parser.add_argument(
+            "--save_features", action="store_false", default=True, help="Save features to output folder, False will override output_folder"
         )
         parser.add_argument(
             "--start_index", default=0, type=int, help="Index to start from "
@@ -129,12 +139,15 @@ class FeatureExtractor:
 
         load_state_dict(model, checkpoint.pop("model"))
 
-        model.to("cuda")
+        # model.to("cuda")
         model.eval()
         return model
 
     def _image_transform(self, path):
-        img = Image.open(path)
+        if not isinstance(path, Image.Image):
+            img = Image.open(path)
+        else:
+            img = path
         im = np.array(img).astype(np.float32)
 
         if im.shape[-1] > 3:
@@ -236,7 +249,7 @@ class FeatureExtractor:
         # Image dimensions should be divisible by 32, to allow convolutions
         # in detector to work
         current_img_list = to_image_list(img_tensor, size_divisible=32)
-        current_img_list = current_img_list.to("cuda")
+        # current_img_list = current_img_list.to("cuda")
 
         with torch.no_grad():
             output = self.detection_model(current_img_list)
@@ -262,32 +275,43 @@ class FeatureExtractor:
         )
         np.save(os.path.join(self.args.output_folder, info_file_base_name), info)
 
-    def extract_features(self):
-        image_dir = self.args.image_dir
-        if os.path.isfile(image_dir):
-            features, infos = self.get_detectron_features([image_dir])
-            self._save_feature(image_dir, features[0], infos[0])
+    def extract_features(self, image_dir=None):
+        save_features = self.args.save_features
+        image_dir = image_dir if image_dir else self.args.image_dir
+        if (isinstance(image_dir, list) and all(isinstance(x, Image.Image) for x in image_dir) and len(image_dir) == 1) or os.path.isfile(image_dir):
+            features, infos = self.get_detectron_features(image_dir)
+            if save_features:
+                self._save_feature(image_dir, features[0], infos[0])
+            else:
+                return [features[0].cpu().numpy()], [infos[0]]
         else:
+            if save_features:
+                files = get_image_files(
+                    self.args.image_dir,
+                    exclude_list=self.args.exclude_list,
+                    start_index=self.args.start_index,
+                    end_index=self.args.end_index,
+                    output_folder=self.args.output_folder,
+                )
 
-            files = get_image_files(
-                self.args.image_dir,
-                exclude_list=self.args.exclude_list,
-                start_index=self.args.start_index,
-                end_index=self.args.end_index,
-                output_folder=self.args.output_folder,
-            )
+                finished = 0
+                total = len(files)
+                for chunk, begin_idx in chunks(files, self.args.batch_size):
+                    features, infos = self.get_detectron_features(chunk)
+                    for idx, file_name in enumerate(chunk):
+                        self._save_feature(file_name, features[idx], infos[idx])
+                    finished += len(chunk)
 
-            finished = 0
-            total = len(files)
-
-            for chunk, begin_idx in chunks(files, self.args.batch_size):
-                features, infos = self.get_detectron_features(chunk)
-                for idx, file_name in enumerate(chunk):
-                    self._save_feature(file_name, features[idx], infos[idx])
-                finished += len(chunk)
-
-                if finished % 200 == 0:
-                    print(f"Processed {finished}/{total}")
+                    if finished % 200 == 0:
+                        print(f"Processed {finished}/{total}")
+            else:
+                assert((isinstance(image_dir, list) and all(isinstance(x, Image.Image) for x in image_dir) and len(image_dir) > 1))
+                # assumption that not save == we are calling this programmatically
+                # and that image_dir is a list of Image.Image
+                features, infos = self.get_detectron_features(image_dir)
+                features = [feature.cpu().numpy() for feature in features]
+                return features, infos
+            
 
 
 if __name__ == "__main__":
