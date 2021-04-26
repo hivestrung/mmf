@@ -470,7 +470,6 @@ class TransformerEncoder(Encoder):
         super().__init__()
         self.config = config
         hf_params = {"config": self._build_encoder_config(config)}
-
         # For BERT models, initialize using Jit version
         if self.config.bert_model_name.startswith("bert-"):
             self.module = BertModelJit.from_pretrained(

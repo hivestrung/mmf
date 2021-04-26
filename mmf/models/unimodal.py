@@ -31,13 +31,16 @@ class UnimodalBase(MultiModalEncoderBase):
         x = self.encoder(x, *args, **kwargs)
         # Case of bert encoder, we only need pooled output
         if isinstance(x, collections.abc.Sequence) and len(x) >= 2:
+            if not self.training:
+                hidden_states = x[2][0]
+                attention_weights = x[2][1]
+                out = torch.flatten(x[1], start_dim=1)
+                return out, hidden_states, attention_weights
             x = x[1]
-
         x = torch.flatten(x, start_dim=1)
-
         return x
 
-
+# for hateful memes: mmf/mmf/configs/models/unimodal/bert.yaml
 @registry.register_model("unimodal_text")
 class UnimodalText(BaseModel):
     def __init__(self, config, *args, **kwargs):
@@ -64,12 +67,14 @@ class UnimodalText(BaseModel):
         else:
             text = sample_list.text
 
-        embedding = self.base(text, *args)
+        embedding, hidden_states, attention_weights = self.base(text, *args)
         output = {}
         output["scores"] = self.classifier(embedding)
-
+        if not self.training:
+            output["embedding"] = embedding
+            output["hidden_states"] = hidden_states
+            output["attention_weights"] = attention_weights
         return output
-
 
 @registry.register_model("unimodal_image")
 class UnimodalModal(BaseModel):
@@ -104,3 +109,4 @@ class UnimodalModal(BaseModel):
         output["scores"] = self.classifier(embedding)
 
         return output
+    
