@@ -7,6 +7,7 @@ from mmf.common.registry import registry
 from mmf.datasets.builders.hateful_memes.dataset import (
     HatefulMemesFeaturesDataset,
     HatefulMemesImageDataset,
+    HatefulMemesImageAndFeaturesDataset
 )
 from mmf.datasets.mmf_dataset_builder import MMFDatasetBuilder
 from mmf.utils.configuration import get_mmf_env
@@ -33,8 +34,11 @@ class HatefulMemesBuilder(MMFDatasetBuilder):
     def load(self, config, dataset_type, *args, **kwargs):
         config = config
 
-        if config.use_features:
+        if config.use_features and config.use_images:
+            self.dataset_class = HatefulMemesImageAndFeaturesDataset
+        elif config.use_features:
             self.dataset_class = HatefulMemesFeaturesDataset
+            
 
         self.dataset = super().load(config, dataset_type, *args, **kwargs)
 
