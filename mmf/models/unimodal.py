@@ -66,11 +66,15 @@ class UnimodalText(BaseModel):
             args.append(sample_list.segment_ids)
         else:
             text = sample_list.text
-
-        embedding, hidden_states, attention_weights = self.base(text, *args)
+        
         output = {}
-        output["scores"] = self.classifier(embedding)
-        if not self.training:
+
+        if self.training:
+            embedding = self.base(text, *args)
+            output["scores"] = self.classifier(embedding)
+        else:
+            embedding, hidden_states, attention_weights = self.base(text, *args)
+            output["scores"] = self.classifier(embedding)
             output["embedding"] = embedding
             output["hidden_states"] = hidden_states
             output["attention_weights"] = attention_weights
