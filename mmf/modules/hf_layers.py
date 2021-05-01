@@ -273,22 +273,21 @@ class BertEncoderJit(BertEncoder):
         self.layer = nn.ModuleList(
             [BertLayerJit(config) for _ in range(config.num_hidden_layers)]
         )
-
+        
     def forward(
         self,
         hidden_states: Tensor,
-        attention_mask: Optional[Tensor],
+        attention_mask: Optional[Tensor] = None,
         encoder_hidden_states: Optional[Tensor] = None,
         encoder_attention_mask: Optional[Tensor] = None,
-        output_attentions: bool = False,
-        output_hidden_states: bool = False,
         return_dict: bool = False,
         head_mask: Optional[Tensor] = None,
     ) -> Tuple[Tensor]:
         all_hidden_states = ()
         all_attentions = ()
+        
         for i, layer_module in enumerate(self.layer):
-            if not torch.jit.is_scripting() and output_hidden_states:
+            if not torch.jit.is_scripting() and self.output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
             layer_outputs = layer_module(
@@ -300,18 +299,18 @@ class BertEncoderJit(BertEncoder):
             )
             hidden_states = layer_outputs[0]
 
-            if not torch.jit.is_scripting() and output_attentions:
+            if not torch.jit.is_scripting() and self.output_attentions:
                 all_attentions = all_attentions + (layer_outputs[1],)
 
         # Add last layer
-        if not torch.jit.is_scripting() and output_hidden_states:
+        if not torch.jit.is_scripting() and self.output_hidden_states:
             all_hidden_states = all_hidden_states + (hidden_states,)
 
         outputs = (hidden_states,)
         if not torch.jit.is_scripting():
-            if output_hidden_states:
+            if self.output_hidden_states:
                 outputs = outputs + (all_hidden_states,)
-            if output_attentions:
+            if self.output_attentions:
                 outputs = outputs + (all_attentions,)
         return outputs  # last-layer hidden state, (all hidden states), (all attentions)
 
