@@ -278,7 +278,7 @@ class FeatureExtractor:
     def extract_features(self, image_dir=None):
         save_features = self.args.save_features
         image_dir = image_dir if image_dir else self.args.image_dir
-        if (isinstance(image_dir, list) and all(isinstance(x, Image.Image) for x in image_dir) and len(image_dir) == 1) or os.path.isfile(image_dir):
+        if (isinstance(image_dir, list) and all(isinstance(x, Image.Image) for x in image_dir) and len(image_dir) == 1) or (not isinstance(image_dir, list) and os.path.isfile(image_dir)):
             features, infos = self.get_detectron_features(image_dir)
             if save_features:
                 self._save_feature(image_dir, features[0], infos[0])
@@ -308,9 +308,13 @@ class FeatureExtractor:
                 assert((isinstance(image_dir, list) and all(isinstance(x, Image.Image) for x in image_dir) and len(image_dir) > 1))
                 # assumption that not save == we are calling this programmatically
                 # and that image_dir is a list of Image.Image
-                features, infos = self.get_detectron_features(image_dir)
-                features = [feature.cpu().numpy() for feature in features]
-                return features, infos
+                features_list, infos_list = [], []
+                for chunk, begin_idx in chunks(image_dir, self.args.batch_size):
+                    features, infos = self.get_detectron_features(chunk)
+                    features = [feature.cpu().numpy() for feature in features]
+                    features_list.extend(features)
+                    infos_list.extend(infos)
+                return features_list, infos_list
             
 
 
