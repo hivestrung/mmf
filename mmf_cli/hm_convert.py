@@ -80,7 +80,7 @@ class HMConverter:
         )
 
         parser.add_argument(
-            "--password", required=True, type=str, help="Password for the zip file"
+            "--password", required=False, type=str, help="Password for the zip file"
         )
         parser.add_argument(
             "--move", required=None, type=int, help="Move data dir to mmf cache dir"
@@ -93,6 +93,12 @@ class HMConverter:
             required=None,
             type=int,
             help="Pass 1 if you want to skip checksum",
+        )
+        parser.add_argument(
+            "--post_unzip",
+            required=None,
+            type=int,
+            help="Pass 1 if you want this",
         )
         return parser
 
@@ -112,7 +118,7 @@ class HMConverter:
 
         base_path = os.path.join(data_dir, "datasets", "hateful_memes", "defaults")
 
-        images_path = os.path.join(base_path, "images")
+        images_path = os.path.join(base_path, "images") 
         PathManager.mkdirs(images_path)
 
         move_dir = False
@@ -124,19 +130,21 @@ class HMConverter:
 
         src = self.args.zip_file
         dest = images_path
-        if move_dir:
-            print(f"Moving {src}")
-            move(src, dest)
-        else:
-            print(f"Copying {src}")
-            copy(src, dest)
+        if not self.args.post_unzip:
+            if move_dir:
+                print(f"Moving {src}")
+                move(src, dest)
+            else:
+                print(f"Copying {src}")
+                copy(src, dest)
 
-        print(f"Unzipping {src}")
-        self.decompress_zip(
-            dest, fname=os.path.basename(src), password=self.args.password
-        )
-
+            print(f"Unzipping {src}")
+            self.decompress_zip(
+                dest, fname=os.path.basename(src), password=self.args.password
+            )
+        
         phase_one = self.assert_files(images_path)
+            
 
         annotations_path = os.path.join(base_path, "annotations")
         PathManager.mkdirs(annotations_path)
